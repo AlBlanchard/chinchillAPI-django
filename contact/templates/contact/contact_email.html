@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Nouveau message depuis alblanchard.fr</title>
+</head>
+
+<body
+    style="
+        margin: 0;
+        padding: 0;
+        background-color: #f3f4f6;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #1f2937;
+    "
+>
+    <table
+        role="presentation"
+        width="100%"
+        cellspacing="0"
+        cellpadding="0"
+        border="0"
+        style="background-color: #f3f4f6;"
+    >
+        <tr>
+            <td align="center" style="padding: 40px 16px;">
+                <table
+                    role="presentation"
+                    width="100%"
+                    cellspacing="0"
+                    cellpadding="0"
+                    border="0"
+                    style="
+                        max-width: 680px;
+                        background-color: #ffffff;
+                        border-radius: 14px;
+                        overflow: hidden;
+                        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+                    "
+                >
+                    <tr>
+                        <td
+                            style="
+                                padding: 28px 32px;
+                                background-color: #111827;
+                                color: #ffffff;
+                                border-bottom: 4px solid #d6a84b;
+                            "
+                        >
+                            <p
+                                style="
+                                    margin: 0 0 8px;
+                                    font-size: 13px;
+                                    letter-spacing: 2px;
+                                    text-transform: uppercase;
+                                    color: #d6a84b;
+                                "
+                            >
+                                alblanchard.fr
+                            </p>
+
+                            <h1
+                                style="
+                                    margin: 0;
+                                    font-size: 24px;
+                                    line-height: 1.3;
+                                    font-weight: 700;
+                                "
+                            >
+                                Nouveau message reçu
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 32px;">
+                            <table
+                                role="presentation"
+                                width="100%"
+                                cellspacing="0"
+                                cellpadding="0"
+                                border="0"
+                            >
+                                <tr>
+                                    <td
+                                        style="
+                                            padding-bottom: 22px;
+                                            border-bottom: 1px solid #e5e7eb;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0 0 6px;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                letter-spacing: 1px;
+                                                text-transform: uppercase;
+                                                color: #6b7280;
+                                            "
+                                        >
+                                            Nom
+                                        </p>
+
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                font-size: 17px;
+                                                line-height: 1.5;
+                                                color: #111827;
+                                            "
+                                        >
+                                            {{ name }}
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td
+                                        style="
+                                            padding: 22px 0;
+                                            border-bottom: 1px solid #e5e7eb;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0 0 6px;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                letter-spacing: 1px;
+                                                text-transform: uppercase;
+                                                color: #6b7280;
+                                            "
+                                        >
+                                            Email
+                                        </p>
+
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                font-size: 17px;
+                                                line-height: 1.5;
+                                            "
+                                        >
+                                            <a
+                                                href="mailto:{{ visitor_email }}"
+                                                style="
+                                                    color: #9a6d16;
+                                                    text-decoration: none;
+                                                "
+                                            >
+                                                {{ visitor_email }}
+                                            </a>
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td
+                                        style="
+                                            padding: 22px 0;
+                                            border-bottom: 1px solid #e5e7eb;
+                                        "
+                                    >
+                                        <p
+                                            style="
+                                                margin: 0 0 6px;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                letter-spacing: 1px;
+                                                text-transform: uppercase;
+                                                color: #6b7280;
+                                            "
+                                        >
+                                            Sujet
+                                        </p>
+
+                                        <p
+                                            style="
+                                                margin: 0;
+                                                font-size: 17px;
+                                                line-height: 1.5;
+                                                color: #111827;
+                                            "
+                                        >
+                                            {{ subject }}
+                                        </p>
+                                    </td>
+                                </tr>
+
+                                <tr>
+                                    <td style="padding-top: 22px;">
+                                        <p
+                                            style="
+                                                margin: 0 0 12px;
+                                                font-size: 12px;
+                                                font-weight: 700;
+                                                letter-spacing: 1px;
+                                                text-transform: uppercase;
+                                                color: #6b7280;
+                                            "
+                                        >
+                                            Message
+                                        </p>
+
+                                        <div
+                                            style="
+                                                padding: 20px;
+                                                background-color: #f9fafb;
+                                                border-left: 4px solid #d6a84b;
+                                                border-radius: 8px;
+                                                font-size: 16px;
+                                                line-height: 1.7;
+                                                color: #374151;
+                                            "
+                                        >
+                                            {{ message|linebreaksbr }}
+                                        </div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td
+                            style="
+                                padding: 22px 32px;
+                                background-color: #f9fafb;
+                                border-top: 1px solid #e5e7eb;
+                            "
+                        >
+                            <p
+                                style="
+                                    margin: 0;
+                                    font-size: 13px;
+                                    line-height: 1.5;
+                                    color: #6b7280;
+                                "
+                            >
+                                Message envoyé automatiquement depuis le
+                                formulaire de contact de
+                                <strong>alblanchard.fr</strong>.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
