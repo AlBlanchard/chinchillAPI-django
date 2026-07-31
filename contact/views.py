@@ -35,7 +35,8 @@ class ContactAPIView(APIView):
 
         except Exception:
             logger.exception(
-                "Une erreur est survenue pendant l'envoi du message de contact."
+                "Une erreur est survenue pendant l'envoi "
+                "du message de contact."
             )
 
             return Response(
