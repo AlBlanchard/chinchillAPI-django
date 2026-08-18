@@ -39,6 +39,7 @@ jobs:
             --exclude '.env' \
             --exclude '.git' \
             --exclude '.venv' \
+            -e "ssh -i ~/.ssh/deploy_key" \
             ./ \
             "$SSH_USER@$SSH_HOST:/srv/apps/chinchillapi/"
 
