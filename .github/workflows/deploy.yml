@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - deploy
 
 concurrency:
   group: chinchillapi-production
@@ -17,6 +18,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Test Tailscale connection
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          tailscale status
+          tailscale ping "$SSH_HOST"
+
       - name: Configure SSH
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -24,10 +39,14 @@ jobs:
           SSH_HOST_KEY: ${{ secrets.SSH_HOST_KEY }}
         run: |
           install -m 700 -d ~/.ssh
+
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
           printf '%s %s\n' "$SSH_HOST" "$SSH_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+
+          ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts
 
       - name: Upload application
         env:
@@ -48,7 +67,8 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
+          ssh \
+            -i ~/.ssh/deploy_key \
             "$SSH_USER@$SSH_HOST" \
             "sudo /usr/bin/docker compose -f /srv/apps/chinchillapi/compose.yaml build &&
              sudo /usr/bin/docker compose -f /srv/apps/chinchillapi/compose.yaml up -d"
@@ -58,7 +78,8 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
+          ssh \
+            -i ~/.ssh/deploy_key \
             "$SSH_USER@$SSH_HOST" \
             'STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/api/contact/)
              echo "API returned HTTP $STATUS"
