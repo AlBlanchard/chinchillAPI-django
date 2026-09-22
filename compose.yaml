@@ -1,0 +1,12 @@
+services:
+  api:
+    build:
+      context: .
+    container_name: chinchillapi
+    restart: unless-stopped
+
+    env_file:
+      - .env
+
+    ports:
+      - "127.0.0.1:8001:8000"
