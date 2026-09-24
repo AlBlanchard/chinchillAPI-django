@@ -1884,4 +1884,97 @@ def test_delete_project_image_from_wrong_project_returns_404(admin_client):
     assert Image.objects.filter(pk=image.pk).exists()
 
 
+@pytest.mark.django_db
+def test_create_project_with_nested_content(admin_client):
+    """Vérifie qu'un projet complet peut être créé en une seule requête."""
 
+    payload = {
+        "title": "Lagash",
+        "slug": "lagash",
+        "project_type": "Projet professionnel",
+        "description": "Solutions numériques sur mesure.",
+        "category": "Projet professionnel",
+        "skills": ["Backend", "Frontend"],
+        "technologies": ["Python", "Django", "React"],
+        "started_at": "2026-09-01",
+        "published": True,
+        "pages": [
+            {
+                "slug": "presentation",
+                "title": "Présentation",
+                "subtitle": "Une solution adaptée à l'entreprise",
+                "layout": "default",
+                "position": 0,
+                "published": True,
+                "paragraphs": [
+                    {
+                        "content": "Premier paragraphe.",
+                        "position": 0,
+                    },
+                    {
+                        "content": "Deuxième paragraphe.",
+                        "position": 1,
+                    },
+                ],
+                "highlights": [
+                    {
+                        "content": "Premier point fort",
+                        "position": 0,
+                    }
+                ],
+            },
+            {
+                "slug": "architecture",
+                "title": "Architecture",
+                "layout": "image-top",
+                "position": 1,
+                "published": True,
+                "paragraphs": [],
+                "highlights": [],
+            },
+        ],
+    }
+
+    response = admin_client.post(
+        reverse("project-list"),
+        payload,
+        format="json",
+    )
+
+    assert response.status_code == 201
+
+    project = Project.objects.get(slug="lagash")
+
+    assert project.category is not None
+    assert project.category.name == "Projet professionnel"
+    assert set(project.skills.values_list("name", flat=True)) == {
+        "Backend",
+        "Frontend",
+    }
+    assert set(project.technologies.values_list("name", flat=True)) == {
+        "Python",
+        "Django",
+        "React",
+    }
+
+    pages = project.pages.all()  # type: ignore[attr-defined]
+
+    assert pages.count() == 2
+
+    presentation = pages.get(slug="presentation")
+    architecture = pages.get(slug="architecture")
+
+    assert presentation.paragraphs.count() == 2
+    assert presentation.highlights.count() == 1
+
+    assert list(
+        presentation.paragraphs.values_list("content", flat=True)
+    ) == [
+        "Premier paragraphe.",
+        "Deuxième paragraphe.",
+    ]
+
+    assert presentation.highlights.get().content == "Premier point fort"
+
+    assert architecture.paragraphs.count() == 0
+    assert architecture.highlights.count() == 0

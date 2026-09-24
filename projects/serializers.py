@@ -1,3 +1,5 @@
+from django.utils.text import slugify
+from django.urls import reverse
 from rest_framework import serializers
 
 from .models import (
@@ -48,6 +50,21 @@ class ImageSerializer(serializers.ModelSerializer):
     elle reste sous la responsabilité du frontend.
     """
 
+    MAX_FILE_SIZE = 10 * 1024 * 1024
+
+    def validate_file(self, file):
+        if file.size > self.MAX_FILE_SIZE:
+            raise serializers.ValidationError("L'image ne doit pas dépasser 10 Mio.")
+        return file
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.file:
+            url = reverse("image-file", kwargs={"pk": instance.pk})
+            request = self.context.get("request")
+            data["file"] = request.build_absolute_uri(url) if request else url
+        return data
+
     class Meta:
         model = Image
         fields = ["id", "file", "alt", "theme", "created_at"]
@@ -83,18 +100,41 @@ class ProjectPageSerializer(serializers.ModelSerializer):
     # many=True indique qu'il s'agit d'une collection d'objets.
     paragraphs = ParagraphSerializer(
         many=True,
-        read_only=True,
+        required=False,
     )
 
     highlights = HighlightSerializer(
         many=True,
-        read_only=True,
+        required=False,
     )
 
     images = ImageSerializer(
         many=True,
         read_only=True,
     )
+
+    def validate(self, attrs):
+        # Seul le POST Project orchestre la création de ces enfants.
+        if self.parent is None:
+            errors = {
+                field: "Utilisez l'endpoint dédié pour modifier ce contenu."
+                for field in ("paragraphs", "highlights")
+                if field in attrs
+            }
+            if errors:
+                raise serializers.ValidationError(errors)
+            if "slug" in attrs:
+                project = self.context.get("project")
+                if self.instance is not None:
+                    project = self.instance.project
+                conflicts = ProjectPage.objects.filter(project=project, slug=attrs["slug"])
+                if self.instance is not None:
+                    conflicts = conflicts.exclude(pk=self.instance.pk)
+                if conflicts.exists():
+                    raise serializers.ValidationError({
+                        "slug": "Ce projet possède déjà une page avec ce slug.",
+                    })
+        return attrs
 
     class Meta:
         model = ProjectPage
@@ -187,6 +227,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     """
 
     category = NamedRelationField(
+        max_length=100,
         required=False,
         allow_null=True,
         allow_blank=True,
@@ -207,8 +248,61 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     pages = ProjectPageSerializer(
         many=True,
-        read_only=True,
+        required=False,
     )
+
+    def _validate_named_relations(self, model, names):
+        # La résolution/création reste dans le ViewSet ; ici on valide seulement.
+        pending_slugs = {}
+        for name in names:
+            if model.objects.filter(name=name).exists():
+                continue
+            slug = slugify(name)
+            if not slug:
+                raise serializers.ValidationError(
+                    f"Le nom « {name} » ne permet pas de générer un slug valide.",
+                )
+            # La normalisation Unicode peut allonger un nom pourtant <= 100 caractères.
+            if len(slug) > 100:
+                raise serializers.ValidationError("Le slug généré ne doit pas dépasser 100 caractères.")
+            if (
+                slug in pending_slugs and pending_slugs[slug] != name
+            ) or model.objects.filter(slug=slug).exists():
+                raise serializers.ValidationError(
+                    f"Le slug « {slug} » est déjà utilisé par un autre nom.",
+                )
+            pending_slugs[slug] = name
+        return names
+
+    def validate_category(self, name):
+        if name:
+            self._validate_named_relations(Category, [name])
+        return name
+
+    def validate_skills(self, names):
+        return self._validate_named_relations(Skill, names)
+
+    def validate_technologies(self, names):
+        return self._validate_named_relations(Technology, names)
+
+    def validate_pages(self, pages):
+        slugs = [page["slug"] for page in pages if "slug" in page]
+        if len(slugs) != len(set(slugs)):
+            raise serializers.ValidationError("Les slugs des pages doivent être uniques dans le projet.")
+        return pages
+
+    def validate(self, attrs):
+        if self.instance is not None and "pages" in attrs:
+            raise serializers.ValidationError({
+                "pages": "Utilisez les endpoints des pages pour modifier le contenu du projet.",
+            })
+        started_at = attrs.get("started_at", getattr(self.instance, "started_at", None))
+        ended_at = attrs.get("ended_at", getattr(self.instance, "ended_at", None))
+        if started_at is not None and ended_at is not None and ended_at < started_at:
+            raise serializers.ValidationError({
+                "ended_at": "La date de fin doit être postérieure ou égale à la date de début.",
+            })
+        return attrs
 
     class Meta:
         model = Project

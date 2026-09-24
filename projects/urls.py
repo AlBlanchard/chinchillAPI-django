@@ -10,6 +10,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (
     HighlightViewSet,
+    ImageFileView,
     ImageViewSet,
     ParagraphViewSet,
     ProjectImageViewSet,
@@ -106,6 +107,11 @@ project_page_images_detail = ProjectPageImageViewSet.as_view({
 })
 
 urlpatterns = router.urls + [
+    path(
+        "images/<uuid:pk>/file/",
+        ImageFileView.as_view(),
+        name="image-file",
+    ),
     path(
         "projects/<slug:project_slug>/pages/",
         project_pages_list,

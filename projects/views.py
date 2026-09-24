@@ -1,10 +1,15 @@
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
+from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
+from django.views.decorators.cache import never_cache
 from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from projects.mixins import StaffPublicationMixin, ProjectPageChildMixin
 
@@ -48,7 +53,19 @@ class ProjectViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
     def get_queryset(self):  # type: ignore[override]
         """Cache les brouillons aux visiteurs non-staff."""
-        queryset = Project.objects.all()
+        pages = ProjectPage.objects.all()
+        if not self._is_staff_request():
+            pages = pages.filter(published=True)
+
+        queryset = Project.objects.select_related("category").prefetch_related(
+            "skills",
+            "technologies",
+            "images",
+            Prefetch(
+                "pages",
+                queryset=pages.prefetch_related("images", "paragraphs", "highlights"),
+            ),
+        )
 
         return self.filter_public_queryset(queryset)
 
@@ -92,6 +109,32 @@ class ProjectViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
             for name in names
         ]
 
+    def _create_pages(self, project, pages_data):
+        for page_data in pages_data:
+            paragraphs_data = page_data.pop("paragraphs", [])
+            highlights_data = page_data.pop("highlights", [])
+
+            page = ProjectPage.objects.create(
+                project=project,
+                **page_data,
+            )
+
+            Paragraph.objects.bulk_create(
+                Paragraph(
+                    page=page,
+                    **paragraph_data,
+                )
+                for paragraph_data in paragraphs_data
+            )
+
+            Highlight.objects.bulk_create(
+                Highlight(
+                    page=page,
+                    **highlight_data,
+                )
+                for highlight_data in highlights_data
+            )
+
     @transaction.atomic
     def perform_create(self, serializer):
         """
@@ -110,7 +153,9 @@ class ProjectViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
         skill_names = validated_data.pop("skills", [])
         technology_names = validated_data.pop("technologies", [])
 
-        # Création des champs directs du Project.
+        pages_data = validated_data.pop("pages", [])
+
+        # création de Project + category/skills/technologies...
         project = Project.objects.create(**validated_data)
 
         # ----- Category -----
@@ -140,6 +185,8 @@ class ProjectViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
         )
 
         project.technologies.set(technologies)
+
+        self._create_pages(project, pages_data)
 
         # DRF doit connaître l'instance finalement créée pour
         # pouvoir construire correctement la réponse HTTP.
@@ -245,17 +292,20 @@ class ProjectPageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
         return self.filter_public_queryset(queryset)
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.action == "create":
+            context["project"] = get_object_or_404(
+                Project, slug=self.kwargs["project_slug"],
+            )
+        return context
+
     def perform_create(self, serializer):
         """
         Le projet parent vient de l'URL et non du JSON envoyé
         par le client.
         """
-        project = get_object_or_404(
-            Project,
-            slug=self.kwargs["project_slug"],
-        )
-
-        serializer.save(project=project)
+        serializer.save(project=serializer.context["project"])
 
 
 class ParagraphViewSet(ProjectPageChildMixin, viewsets.ModelViewSet):
@@ -263,7 +313,7 @@ class ParagraphViewSet(ProjectPageChildMixin, viewsets.ModelViewSet):
     serializer_class = ParagraphSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    # Ceci ne sert striqutement à rien, c'est un pont de typage sinon l'IDE panique
+    # Ceci ne sert strictement à rien, c'est un pont de typage sinon l'IDE panique
     def get_queryset(self) -> QuerySet[Paragraph]:  # type: ignore[override]
         return ProjectPageChildMixin.get_queryset(self)
 
@@ -278,6 +328,45 @@ class HighlightViewSet(ProjectPageChildMixin, viewsets.ModelViewSet):
         return ProjectPageChildMixin.get_queryset(self)
 
 
+@method_decorator(never_cache, name="dispatch")
+class ImageFileView(StaffPublicationMixin, APIView):
+    """Transmet un fichier après contrôle de publication, sans URL directe du stockage."""
+
+    permission_classes = [IsAdminOrReadOnly]
+
+    def perform_content_negotiation(self, request, force=False):
+        # Le succès est un FileResponse ; conserver un renderer pour les erreurs
+        # sans rejeter les clients qui demandent uniquement un type image.
+        # Ouai le force=True est une bidouille
+        # Ca va c'est plutôt cool non ?
+        return super().perform_content_negotiation(request, force=True)
+
+    def get(self, request, pk):
+        image = get_object_or_404(Image, pk=pk)
+        if not self._is_staff_request():
+            # Les deux conditions de page doivent porter sur la même association.
+            public = Project.objects.filter(
+                images=image, published=True,
+            ).exists() or ProjectPage.objects.filter(
+                images=image, published=True, project__published=True,
+            ).exists()
+            if not public:
+                raise Http404
+
+        if not image.file:
+            raise Http404
+
+        storage = image.file.storage
+        file_name = image.file.name
+
+        if not file_name or not storage.exists(file_name):
+            raise Http404
+
+        file = storage.open(file_name, "rb")
+
+        return FileResponse(file)
+
+
 class ImageViewSet(viewsets.ModelViewSet):
     """
     Gère les images indépendamment de leur association
@@ -286,7 +375,7 @@ class ImageViewSet(viewsets.ModelViewSet):
 
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminUser]
 
 
 def remove_image_from_owner(owner, image):
@@ -321,7 +410,7 @@ class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     permission_classes = [IsAdminOrReadOnly]
-    publication_filters = {"projects__published": True}
+    publication_filters = {"published": True}
 
     def get_queryset(self):  # type: ignore[override]
         """
@@ -332,11 +421,12 @@ class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
         """
         project_slug = self.kwargs["project_slug"]
 
-        queryset = Image.objects.filter(
-            projects__slug=project_slug,
-        )
-
-        return self.filter_public_queryset(queryset)
+        owners = self.filter_public_queryset(Project.objects.filter(slug=project_slug))
+        owner = owners.first()
+        # Conserve le contrat des listes : propriétaire absent/invisible -> [].
+        if owner is None:
+            return Image.objects.none()
+        return owner.images.all()
 
     def perform_create(self, serializer):
         """
@@ -394,8 +484,8 @@ class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     serializer_class = ImageSerializer
     permission_classes = [IsAdminOrReadOnly]
     publication_filters = {
-        "pages__published": True,
-        "pages__project__published": True,
+        "published": True,
+        "project__published": True,
     }
 
     def get_queryset(self):  # type: ignore[override]
@@ -408,12 +498,14 @@ class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
         project_slug = self.kwargs["project_slug"]
         page_slug = self.kwargs["page_slug"]
 
-        queryset = Image.objects.filter(
-            pages__project__slug=project_slug,
-            pages__slug=page_slug,
+        owners = ProjectPage.objects.filter(
+            project__slug=project_slug,
+            slug=page_slug,
         )
-
-        return self.filter_public_queryset(queryset)
+        owner = self.filter_public_queryset(owners).first()
+        if owner is None:
+            return Image.objects.none()
+        return owner.images.all()
 
     def perform_create(self, serializer):
         """

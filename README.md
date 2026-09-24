@@ -233,6 +233,46 @@ Cela permet d'ajouter ou de retirer un domaine autorisé sans modifier directeme
 
 # Déploiement
 
+## Médias et fichiers statiques Django
+
+Les images sont stockées dans `MEDIA_ROOT`, par défaut le répertoire local
+`media/` à la racine du projet, distinct des applications Python et ignoré par Git.
+La variable d'environnement `MEDIA_ROOT` permet de choisir un autre répertoire
+accessible en écriture. En production, il devra correspondre au stockage persistant
+monté dans le conteneur. Aucun déplacement des fichiers existants n'est automatique :
+ils devront être transférés dans ce répertoire en conservant leurs chemins relatifs
+en base, par exemple `projects/photo.png`.
+
+`STATIC_ROOT` est configurable par une variable du même nom et vaut par défaut
+`staticfiles/`. Il est réservé aux fichiers statiques Django, pas aux uploads.
+
+`MEDIA_URL` vaut `/media/`, mais ce préfixe n'est **pas servi directement**, même
+avec `DEBUG=True`. Ne pas ajouter de route Django `static(MEDIA_URL, ...)` ni de
+desserte publique de `MEDIA_ROOT` au reverse proxy.
+
+Le champ JSON `ImageSerializer.file` reste une chaîne URL ; l'upload reste multipart
+dans le champ `file`. L'URL renvoyée est désormais celle de la route contrôlée :
+
+```text
+GET /api/images/<uuid>/file/
+```
+
+Le fichier est accessible publiquement s'il est lié à au moins un projet publié
+ou à une page publiée d'un projet publié. Le staff authentifié peut aussi lire
+les images privées ou non associées. Sinon, la réponse est `404`, comme pour un
+UUID inconnu ou un fichier absent. `HEAD` applique les mêmes règles. Les réponses
+désactivent le cache pour que la publication soit revérifiée à chaque requête.
+
+Pour prévisualiser une image privée côté frontend, envoyer le JWT existant dans
+`Authorization: Bearer ...`, par exemple avec `fetch` puis une URL de blob. Une
+balise `<img src="...">` seule n'ajoute pas cet en-tête. Les images publiques
+s'affichent directement avec l'URL fournie.
+
+Le montage de production et la configuration du proxy restent à réaliser dans
+une phase ultérieure. La présente configuration fonctionne aussi sans Docker.
+
+## Procédure de déploiement existante
+
 L'application est déployée sur le serveur de production à l'aide de Docker.
 
 Le fichier `.env` de production est conservé sur le serveur et reste indépendant du dépôt Git. Les secrets de production ne sont donc pas stockés dans le code source.
