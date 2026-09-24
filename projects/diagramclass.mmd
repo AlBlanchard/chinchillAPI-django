@@ -1,0 +1,76 @@
+classDiagram
+    class Project {
+        +UUID id
+        +String title
+        +String project_type
+        +Text description
+        +String slug
+        +URL github_url
+        +URL website_url
+        +URL client_url
+        +Boolean published
+        +Date started_at
+        +Date ended_at
+        +DateTime created_at
+        +DateTime updated_at
+    }
+
+    class ProjectPage {
+        +UUID id
+        +String slug
+        +String title
+        +String subtitle
+        +Text mermaid
+        +Layout layout
+        +Integer position
+        +Boolean published
+        +Boolean themed_image
+    }
+
+    class Image {
+        +UUID id
+        +String file
+        +String alt
+        +Boolean themed
+        +DateTime created_at
+    }
+
+    class Skill {
+        +UUID id
+        +String name
+        +String slug
+    }
+
+    class Technology {
+        +UUID id
+        +String name
+        +String slug
+    }
+
+    class Paragraph {
+        +UUID id
+        +Text content
+        +Integer position
+    }
+
+    class Highlight {
+        +UUID id
+        +String content
+        +Integer position
+    }
+
+    class Category {
+        +UUID id
+        +String name
+        +String slug
+    }
+
+    Project "1" *-- "1..*" ProjectPage : pages
+    Project "*" --> "0..1" Image : image
+    Project "*" -- "*" Skill : skills
+    Project "*" -- "*" Technology : technologies
+    Project "*" --> "0..1" Category : category
+
+    ProjectPage "*" --> "0..1" Image : image
+    ProjectPage "1" *-- "0..*" Paragraph : paragraphs
+    ProjectPage "1" *-- "0..*" Highlight : highlights
