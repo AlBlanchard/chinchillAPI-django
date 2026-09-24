@@ -6,6 +6,8 @@ from rest_framework import status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
+from projects.mixins import StaffPublicationMixin, ProjectPageChildMixin
+
 from .models import (
     Category,
     Highlight,
@@ -26,22 +28,7 @@ from .serializers import (
 from .permissions import IsAdminOrReadOnly
 
 
-def _is_staff_request(request):
-    """
-    Un staff authentifié voit tout le contenu, publié ou non.
-
-    Les autres (anonymes ou authentifiés non-staff) ne doivent voir
-    que le contenu publié : c'est une question de queryset, distincte
-    de la permission d'écrire (IsAdminOrReadOnly).
-    """
-    return bool(
-        request.user
-        and request.user.is_authenticated
-        and request.user.is_staff
-    )
-
-
-class ProjectViewSet(viewsets.ModelViewSet):
+class ProjectViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
     Contrôleur CRUD des projets.
 
@@ -53,6 +40,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
     queryset = Project.objects.all()
     serializer_class = ProjectSerializer
     permission_classes = [IsAdminOrReadOnly]
+    publication_filters = {"published": True}
 
     # L'UUID reste la clé primaire technique en base,
     # mais l'API identifie les projets par leur slug lisible.
@@ -62,10 +50,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
         """Cache les brouillons aux visiteurs non-staff."""
         queryset = Project.objects.all()
 
-        if _is_staff_request(self.request):
-            return queryset
-
-        return queryset.filter(published=True)
+        return self.filter_public_queryset(queryset)
 
     def _get_or_create_named_object(self, model, name):
         """
@@ -231,12 +216,16 @@ class ProjectViewSet(viewsets.ModelViewSet):
             project.technologies.set(technologies)
 
 
-class ProjectPageViewSet(viewsets.ModelViewSet):
+class ProjectPageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     # Nécessaire pour que django-stubs infère le bon type de retour
     # pour get_queryset() ci-dessous ; la valeur réelle est ignorée.
     queryset = ProjectPage.objects.all()
     serializer_class = ProjectPageSerializer
     permission_classes = [IsAdminOrReadOnly]
+    publication_filters = {
+        "published": True,
+        "project__published": True,
+    }
     lookup_field = "slug"
 
     # DRF déclare `queryset = None` sans annotation, donc Pylance infère
@@ -254,10 +243,7 @@ class ProjectPageViewSet(viewsets.ModelViewSet):
             project__slug=self.kwargs["project_slug"],
         )
 
-        if _is_staff_request(self.request):
-            return queryset
-
-        return queryset.filter(published=True, project__published=True)
+        return self.filter_public_queryset(queryset)
 
     def perform_create(self, serializer):
         """
@@ -272,92 +258,24 @@ class ProjectPageViewSet(viewsets.ModelViewSet):
         serializer.save(project=project)
 
 
-class ParagraphViewSet(viewsets.ModelViewSet):
+class ParagraphViewSet(ProjectPageChildMixin, viewsets.ModelViewSet):
     queryset = Paragraph.objects.all()
     serializer_class = ParagraphSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    def get_queryset(self):  # type: ignore[override]
-        """
-        Limite les paragraphes à la page et au projet présents dans l'URL.
-
-        Le filtrage sur toute la hiérarchie empêche d'accéder à un
-        paragraphe depuis l'URL d'une autre page ou d'un autre projet.
-
-        Les visiteurs non-staff ne doivent voir que les paragraphes
-        d'une page publiée appartenant à un projet publié.
-        """
-        queryset = Paragraph.objects.filter(
-            page__project__slug=self.kwargs["project_slug"],
-            page__slug=self.kwargs["page_slug"],
-        )
-
-        if _is_staff_request(self.request):
-            return queryset
-
-        return queryset.filter(
-            page__published=True,
-            page__project__published=True,
-        )
-
-    def perform_create(self, serializer):
-        """
-        La page parente est déterminée par l'URL.
-
-        Le client n'a donc pas à envoyer l'UUID de la page
-        dans le corps de la requête.
-        """
-        page = get_object_or_404(
-            ProjectPage,
-            project__slug=self.kwargs["project_slug"],
-            slug=self.kwargs["page_slug"],
-        )
-
-        serializer.save(page=page)
+    # Ceci ne sert striqutement à rien, c'est un pont de typage sinon l'IDE panique
+    def get_queryset(self) -> QuerySet[Paragraph]:  # type: ignore[override]
+        return ProjectPageChildMixin.get_queryset(self)
 
 
-class HighlightViewSet(viewsets.ModelViewSet):
+
+class HighlightViewSet(ProjectPageChildMixin, viewsets.ModelViewSet):
     queryset = Highlight.objects.all()
     serializer_class = HighlightSerializer
     permission_classes = [IsAdminOrReadOnly]
 
-    def get_queryset(self):  # type: ignore[override]
-        """
-        Limite les highlights à la page et au projet présents dans l'URL.
-
-        Le filtrage sur toute la hiérarchie empêche d'accéder à un
-        highlight depuis l'URL d'une autre page ou d'un autre projet.
-
-        Les visiteurs non-staff ne doivent voir que les highlights
-        d'une page publiée appartenant à un projet publié.
-        """
-        queryset = Highlight.objects.filter(
-            page__project__slug=self.kwargs["project_slug"],
-            page__slug=self.kwargs["page_slug"],
-        )
-
-        if _is_staff_request(self.request):
-            return queryset
-
-        return queryset.filter(
-            page__published=True,
-            page__project__published=True,
-        )
-
-    def perform_create(self, serializer):
-        """
-        La page parente est déterminée par l'URL.
-
-        Le client n'a donc pas à envoyer l'UUID de la page
-        dans le corps de la requête.
-        """
-        page = get_object_or_404(
-            ProjectPage,
-            project__slug=self.kwargs["project_slug"],
-            slug=self.kwargs["page_slug"],
-        )
-
-        serializer.save(page=page)
+    def get_queryset(self) -> QuerySet[Highlight]:  # type: ignore[override]
+        return ProjectPageChildMixin.get_queryset(self)
 
 
 class ImageViewSet(viewsets.ModelViewSet):
@@ -394,7 +312,7 @@ def remove_image_from_owner(owner, image):
         storage.delete(file_name)
 
 
-class ProjectImageViewSet(viewsets.ModelViewSet):
+class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
     Images accessibles dans le contexte d'un projet précis,
     plutôt que via la route racine /images/.
@@ -403,6 +321,7 @@ class ProjectImageViewSet(viewsets.ModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     permission_classes = [IsAdminOrReadOnly]
+    publication_filters = {"projects__published": True}
 
     def get_queryset(self):  # type: ignore[override]
         """
@@ -413,13 +332,11 @@ class ProjectImageViewSet(viewsets.ModelViewSet):
         """
         project_slug = self.kwargs["project_slug"]
 
-        if _is_staff_request(self.request):
-            return Image.objects.filter(projects__slug=project_slug)
-
-        return Image.objects.filter(
+        queryset = Image.objects.filter(
             projects__slug=project_slug,
-            projects__published=True,
         )
+
+        return self.filter_public_queryset(queryset)
 
     def perform_create(self, serializer):
         """
@@ -467,7 +384,7 @@ class ProjectImageViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ProjectPageImageViewSet(viewsets.ModelViewSet):
+class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
     Images accessibles dans le contexte d'une page précise,
     plutôt que via la route racine /images/.
@@ -476,6 +393,10 @@ class ProjectPageImageViewSet(viewsets.ModelViewSet):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
     permission_classes = [IsAdminOrReadOnly]
+    publication_filters = {
+        "pages__published": True,
+        "pages__project__published": True,
+    }
 
     def get_queryset(self):  # type: ignore[override]
         """
@@ -487,18 +408,12 @@ class ProjectPageImageViewSet(viewsets.ModelViewSet):
         project_slug = self.kwargs["project_slug"]
         page_slug = self.kwargs["page_slug"]
 
-        if _is_staff_request(self.request):
-            return Image.objects.filter(
-                pages__project__slug=project_slug,
-                pages__slug=page_slug,
-            )
-
-        return Image.objects.filter(
+        queryset = Image.objects.filter(
             pages__project__slug=project_slug,
             pages__slug=page_slug,
-            pages__published=True,
-            pages__project__published=True,
         )
+
+        return self.filter_public_queryset(queryset)
 
     def perform_create(self, serializer):
         """
