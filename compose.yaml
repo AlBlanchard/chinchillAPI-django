@@ -12,21 +12,30 @@ services:
       - "127.0.0.1:8001:8000"
 
     volumes:
-      - .:/app
+      - /srv/media/chinchillapi:/app/media
 
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:17
     container_name: chinchillapi_db
     restart: unless-stopped
 
-    env_file:
-      - .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
