@@ -169,14 +169,18 @@ jobs:
             echo 'PostgreSQL did not become healthy; stopping deployment.' >&2
             false
           fi
-
-          compose run --rm --no-deps api python manage.py migrate --noinput
+          
+          echo "=== BEFORE MIGRATIONS ==="
+          compose run --rm --no-deps -T api python manage.py migrate --noinput </dev/null
+          echo "=== AFTER MIGRATIONS ==="
 
           # Pas de collectstatic dans un conteneur jetable : STATIC_ROOT n'est pas partagé.
           # À activer après validation d'un stockage persistant et de sa desserte.
           echo '::warning::collectstatic skipped: /app/staticfiles has no shared volume; static file delivery is not configured.'
 
+          echo "=== BEFORE API RECREATE ==="
           compose up -d --force-recreate api
+          echo "=== AFTER API RECREATE ==="
 
           for attempt in {1..30}; do
             if status=$(curl --silent --show-error --output /dev/null \
