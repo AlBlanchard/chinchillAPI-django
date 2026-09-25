@@ -95,6 +95,10 @@ project_images_detail = ProjectImageViewSet.as_view({
     "delete": "destroy",
 })
 
+project_page_images_attach = ProjectPageImageViewSet.as_view({
+    "post": "attach",
+})
+
 # Idem pour les images d'une page : elles n'existent dans ce contexte
 # que via la route de la page.
 project_page_images_list = ProjectPageImageViewSet.as_view({
@@ -156,6 +160,11 @@ urlpatterns = router.urls + [
         "projects/<slug:project_slug>/pages/<slug:page_slug>/images/",
         project_page_images_list,
         name="project-page-image-list",
+    ),
+    path(
+        "projects/<slug:project_slug>/pages/<slug:page_slug>/images/attach/",
+        project_page_images_attach,
+        name="project-page-image-attach",
     ),
     path(
         "projects/<slug:project_slug>/pages/<slug:page_slug>/images/<uuid:pk>/",

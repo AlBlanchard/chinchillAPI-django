@@ -10,6 +10,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
+
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
 from projects.mixins import StaffPublicationMixin, ProjectPageChildMixin
 
@@ -341,6 +344,19 @@ class ImageFileView(StaffPublicationMixin, APIView):
         # Ca va c'est plutôt cool non ?
         return super().perform_content_negotiation(request, force=True)
 
+
+    # Documentation de l'API pour la récupération d'un fichier image.
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=bytes,
+                description="Fichier image après contrôle des droits d'accès.",
+            ),
+            404: OpenApiResponse(
+                description="Image inaccessible, inexistante ou fichier absent.",
+            ),
+        },
+    )
     def get(self, request, pk):
         image = get_object_or_404(Image, pk=pk)
         if not self._is_staff_request():
@@ -473,6 +489,9 @@ class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+# Ce décorateur permet d'ajouter une action personnalisée "attach" au ViewSet.
+# Pour les images associées à une page spécifique, cette action permet de les attacher via une requête POST.
+# Comme ça une même image peut être attachée à plusieurs pages sans être recréée.
 
 class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
@@ -530,6 +549,42 @@ class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
         image = serializer.save()
         page.images.add(image)
+
+    @action(detail=False, methods=["post"], url_path="attach")
+    def attach(self, request, project_slug=None, page_slug=None):
+        """
+        Associe à la page une Image déjà existante.
+        Aucun nouveau fichier ni objet Image n'est créé.
+        """
+        page = get_object_or_404(
+            ProjectPage,
+            project__slug=project_slug,
+            slug=page_slug,
+        )
+
+        image_id = request.data.get("image_id")
+
+        if not image_id:
+            raise ValidationError(
+                {"image_id": "L'identifiant de l'image est requis."}
+            )
+
+        image = get_object_or_404(Image, pk=image_id)
+
+        if page.images.filter(theme=image.theme).exclude(pk=image.pk).exists():
+            raise ValidationError(
+                {"theme": "Cette page possède déjà une image pour ce thème."}
+            )
+
+        page.images.add(image)
+
+        return Response(
+            ImageSerializer(
+                image,
+                context=self.get_serializer_context(),
+            ).data,
+            status=status.HTTP_200_OK,
+        )
 
     def destroy(self, request, *args, **kwargs):
         """
