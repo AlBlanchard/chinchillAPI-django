@@ -492,7 +492,7 @@ class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 # Ce décorateur permet d'ajouter une action personnalisée "attach" au ViewSet.
 # Pour les images associées à une page spécifique, cette action permet de les attacher via une requête POST.
 # Comme ça une même image peut être attachée à plusieurs pages sans être recréée.
-@action(detail=False, methods=["post"], url_path="attach")
+
 class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
     Images accessibles dans le contexte d'une page précise,
@@ -549,6 +549,42 @@ class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
         image = serializer.save()
         page.images.add(image)
+
+    @action(detail=False, methods=["post"], url_path="attach")
+    def attach(self, request, project_slug=None, page_slug=None):
+        """
+        Associe à la page une Image déjà existante.
+        Aucun nouveau fichier ni objet Image n'est créé.
+        """
+        page = get_object_or_404(
+            ProjectPage,
+            project__slug=project_slug,
+            slug=page_slug,
+        )
+
+        image_id = request.data.get("image_id")
+
+        if not image_id:
+            raise ValidationError(
+                {"image_id": "L'identifiant de l'image est requis."}
+            )
+
+        image = get_object_or_404(Image, pk=image_id)
+
+        if page.images.filter(theme=image.theme).exclude(pk=image.pk).exists():
+            raise ValidationError(
+                {"theme": "Cette page possède déjà une image pour ce thème."}
+            )
+
+        page.images.add(image)
+
+        return Response(
+            ImageSerializer(
+                image,
+                context=self.get_serializer_context(),
+            ).data,
+            status=status.HTTP_200_OK,
+        )
 
     def destroy(self, request, *args, **kwargs):
         """
