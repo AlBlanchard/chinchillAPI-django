@@ -176,7 +176,7 @@ jobs:
           # À activer après validation d'un stockage persistant et de sa desserte.
           echo '::warning::collectstatic skipped: /app/staticfiles has no shared volume; static file delivery is not configured.'
 
-          compose up -d api
+          compose up -d --force-recreate api
 
           for attempt in {1..30}; do
             if status=$(curl --silent --show-error --output /dev/null \
