@@ -171,7 +171,7 @@ jobs:
           fi
           
           echo "=== BEFORE MIGRATIONS ==="
-          compose run --rm --no-deps api python manage.py migrate --noinput
+          compose run --rm --no-deps -T api python manage.py migrate --noinput </dev/null
           echo "=== AFTER MIGRATIONS ==="
 
           # Pas de collectstatic dans un conteneur jetable : STATIC_ROOT n'est pas partagé.
