@@ -11,6 +11,8 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
 from projects.mixins import StaffPublicationMixin, ProjectPageChildMixin
 
 from .models import (
@@ -341,6 +343,19 @@ class ImageFileView(StaffPublicationMixin, APIView):
         # Ca va c'est plutôt cool non ?
         return super().perform_content_negotiation(request, force=True)
 
+
+    # Documentation de l'API pour la récupération d'un fichier image.
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=bytes,
+                description="Fichier image après contrôle des droits d'accès.",
+            ),
+            404: OpenApiResponse(
+                description="Image inaccessible, inexistante ou fichier absent.",
+            ),
+        },
+    )
     def get(self, request, pk):
         image = get_object_or_404(Image, pk=pk)
         if not self._is_staff_request():
