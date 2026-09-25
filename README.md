@@ -1,344 +1,61 @@
-# API de contact chinchillAPI
+# ChinchillAPI
 
-## Présentation
+API Django REST Framework composée de deux applications : **Contact**, pour
+recevoir les formulaires et envoyer des emails, et **Projects**, pour gérer
+un portfolio, ses pages, contenus et images partagées.
 
-Cette API permet de recevoir les messages envoyés depuis les formulaires de contact de différents sites.
+Stack : Python 3.13 (Docker/CI), Django 5.2, DRF, PostgreSQL 17, SimpleJWT,
+drf-spectacular, Gunicorn et Docker Compose.
 
-Le frontend envoie les données du formulaire à cette API Django REST Framework qui :
+## Démarrage rapide
 
-- valide les informations reçues ;
-- génère un email HTML et une version texte ;
-- envoie le message via le serveur SMTP OVH ;
-- fait parvenir le message à une boîte Gmail ou toute autre adresse de destination.
+Avec Python 3.13 et une base PostgreSQL de développement accessible :
 
----
-
-# Architecture
-
-```text
-React
-   │
-   ▼
-POST /api/contact/
-   │
-   ▼
-ContactSerializer
-   │
-   ▼
-Contact Service
-   │
-   ▼
-Template HTML
-   │
-   ▼
-SMTP OVH
-   │
-   ▼
-Boîte de réception
+```powershell
+py -3.13 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
 ```
 
----
+Compléter `.env` : secrets, PostgreSQL et paramètres SMTP. Hors Docker, utiliser
+l'adresse réelle de PostgreSQL à la place de `db` et adapter les chemins
+`MEDIA_ROOT` / `STATIC_ROOT`. Ne pas écraser un `.env` existant.
 
-# Fonctionnement
-
-## 1. Validation
-
-Le frontend envoie une requête POST contenant :
-
-```json
-{
-  "name": "John Doe",
-  "email": "john@example.com",
-  "subject": "Création d'un site",
-  "message": "Bonjour..."
-}
+```console
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
 ```
 
-Les données sont validées par `ContactSerializer`.
+[Installation détaillée](docs/getting-started/installation.md) ·
+[Configuration](docs/getting-started/configuration.md) ·
+[Docker et production](docs/deployment/docker.md)
 
-Les validations portent notamment sur :
+## Tests et contrat HTTP
 
-- nom obligatoire ;
-- email valide ;
-- sujet obligatoire ;
-- message obligatoire.
-
----
-
-## 2. Service d'envoi
-
-La logique métier est volontairement séparée de la vue.
-
-La vue ne fait que :
-
-1. valider les données ;
-2. appeler `send_contact_email()` ;
-3. retourner une réponse HTTP.
-
-Toute la logique d'envoi est centralisée dans `services.py`.
-
-Cette séparation facilite :
-
-- les tests unitaires ;
-- la maintenance ;
-- la réutilisation du service.
-
----
-
-## 3. Génération du template
-
-L'email HTML est généré grâce à :
-
-```python
-render_to_string(
-    "contact/contact_email.html",
-    context,
-)
+```console
+python -m pytest
 ```
 
-Le template reçoit le contexte :
+Les tests utilisent PostgreSQL avec un rôle pouvant créer la base de test.
+Le seuil de couverture Projects est de 80 %.
 
-- `name`
-- `visitor_email`
-- `subject`
-- `message`
+- [Swagger local](http://127.0.0.1:8000/api/docs/)
+- [OpenAPI local](http://127.0.0.1:8000/api/schema/)
+- [JWT et permissions](docs/api/authentication.md)
 
-Django échappe automatiquement les variables afin d'éviter toute injection HTML.
+## Documentation complète
 
-Le filtre :
+La [documentation technique](docs/index.md) couvre l'architecture, Contact,
+Projects, la publication, les médias, l'API et le déploiement.
+Elle est écrite en français avec Sphinx, MyST et Mermaid.
 
-```django
-{{ message|linebreaksbr }}
+```console
+python -m pip install -r docs/requirements.txt
+python -m sphinx -W --keep-going -b html docs docs/_build/html
 ```
 
-préserve les retours à la ligne du message.
-
-Une version texte est également générée afin d'assurer la compatibilité avec les clients mail qui n'affichent pas le HTML.
-
----
-
-## 4. Envoi de l'email
-
-L'envoi repose sur `EmailMultiAlternatives`.
-
-Le message contient :
-
-- un sujet personnalisé ;
-- une version texte ;
-- une version HTML.
-
-Le champ `reply_to` est défini avec l'adresse du visiteur.
-
-Ainsi, lorsque le destinataire clique sur **Répondre**, son client mail adresse directement la réponse au visiteur.
-
----
-
-# Configuration
-
-La configuration de l'application est définie à l'aide de variables d'environnement.
-
-Elles permettent notamment de configurer Django, les origines autorisées pour les requêtes CORS ainsi que le serveur SMTP utilisé pour l'envoi des emails.
-
-Exemple de configuration :
-
-```env
-DJANGO_SECRET_KEY=VOTRE_SECRET_KEY
-
-DEBUG=False
-
-ALLOWED_HOSTS=chinchillapi.com,www.chinchillapi.com,localhost,127.0.0.1
-
-CORS_ALLOWED_ORIGINS=http://localhost:5173,https://votresite.com,https://www.votresite.com
-
-EMAIL_HOST=ssl0.ovh.net
-EMAIL_PORT=587
-
-EMAIL_HOST_USER=monadresse@monsite.fr
-EMAIL_HOST_PASSWORD=********
-
-EMAIL_USE_TLS=True
-EMAIL_USE_SSL=False
-
-DEFAULT_FROM_EMAIL=Monsite <monadresse@monsite.fr>
-
-CONTACT_EMAIL=mon.adresse@gmail.com
-```
-
-Description :
-
-| Variable | Description |
-| --- | --- |
-| `DJANGO_SECRET_KEY` | Clé secrète utilisée par Django pour les opérations cryptographiques |
-| `DEBUG` | Active ou désactive le mode debug de Django |
-| `ALLOWED_HOSTS` | Liste des noms d'hôte autorisés à servir l'application |
-| `CORS_ALLOWED_ORIGINS` | Liste des origines autorisées à effectuer des requêtes vers l'API depuis un navigateur |
-| `EMAIL_HOST` | Serveur SMTP utilisé pour l'envoi des emails |
-| `EMAIL_PORT` | Port utilisé pour la connexion au serveur SMTP |
-| `EMAIL_HOST_USER` | Compte utilisé pour l'authentification SMTP |
-| `EMAIL_HOST_PASSWORD` | Mot de passe du compte SMTP |
-| `EMAIL_USE_TLS` | Active la connexion TLS au serveur SMTP |
-| `EMAIL_USE_SSL` | Active la connexion SSL directe au serveur SMTP |
-| `DEFAULT_FROM_EMAIL` | Adresse utilisée comme expéditeur des emails |
-| `CONTACT_EMAIL` | Adresse destinataire des messages envoyés via l'API de contact |
-
-Les variables `ALLOWED_HOSTS` et `CORS_ALLOWED_ORIGINS` acceptent plusieurs valeurs séparées par des virgules.
-
-Par exemple :
-
-```env
-CORS_ALLOWED_ORIGINS=https://site-a.fr,https://www.site-a.fr,https://site-b.fr
-```
-
-Les origines CORS doivent inclure leur protocole (`http://` ou `https://`).
-
-À l'inverse, les valeurs de `ALLOWED_HOSTS` correspondent uniquement aux noms d'hôte et ne doivent pas contenir de protocole.
-
-En production, le fichier `.env` est conservé directement sur le serveur et n'est pas versionné dans le dépôt Git. Il contient notamment les secrets nécessaires au fonctionnement de l'application, comme `DJANGO_SECRET_KEY` et `EMAIL_HOST_PASSWORD`.
-
----
-
-# Paramètres Django
-
-Le projet utilise :
-
-```python
-APP_DIRS = True
-```
-
-afin que Django détecte automatiquement les templates situés dans :
-
-```text
-templates/
-```
-
-Les listes `ALLOWED_HOSTS` et `CORS_ALLOWED_ORIGINS` sont chargées depuis les variables d'environnement et converties à l'aide de `Csv()` :
-
-```python
-ALLOWED_HOSTS = config(
-    "ALLOWED_HOSTS",
-    cast=Csv(),
-    default="localhost,127.0.0.1",
-)
-
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    cast=Csv(),
-    default="http://localhost:5173",
-)
-```
-
-Cela permet d'ajouter ou de retirer un domaine autorisé sans modifier directement le code de l'application.
-
----
-
-# Déploiement
-
-## Médias et fichiers statiques Django
-
-Les images sont stockées dans `MEDIA_ROOT`, par défaut le répertoire local
-`media/` à la racine du projet, distinct des applications Python et ignoré par Git.
-La variable d'environnement `MEDIA_ROOT` permet de choisir un autre répertoire
-accessible en écriture. En production, il devra correspondre au stockage persistant
-monté dans le conteneur. Aucun déplacement des fichiers existants n'est automatique :
-ils devront être transférés dans ce répertoire en conservant leurs chemins relatifs
-en base, par exemple `projects/photo.png`.
-
-`STATIC_ROOT` est configurable par une variable du même nom et vaut par défaut
-`staticfiles/`. Il est réservé aux fichiers statiques Django, pas aux uploads.
-
-`MEDIA_URL` vaut `/media/`, mais ce préfixe n'est **pas servi directement**, même
-avec `DEBUG=True`. Ne pas ajouter de route Django `static(MEDIA_URL, ...)` ni de
-desserte publique de `MEDIA_ROOT` au reverse proxy.
-
-Le champ JSON `ImageSerializer.file` reste une chaîne URL ; l'upload reste multipart
-dans le champ `file`. L'URL renvoyée est désormais celle de la route contrôlée :
-
-```text
-GET /api/images/<uuid>/file/
-```
-
-Le fichier est accessible publiquement s'il est lié à au moins un projet publié
-ou à une page publiée d'un projet publié. Le staff authentifié peut aussi lire
-les images privées ou non associées. Sinon, la réponse est `404`, comme pour un
-UUID inconnu ou un fichier absent. `HEAD` applique les mêmes règles. Les réponses
-désactivent le cache pour que la publication soit revérifiée à chaque requête.
-
-Pour prévisualiser une image privée côté frontend, envoyer le JWT existant dans
-`Authorization: Bearer ...`, par exemple avec `fetch` puis une URL de blob. Une
-balise `<img src="...">` seule n'ajoute pas cet en-tête. Les images publiques
-s'affichent directement avec l'URL fournie.
-
-Le montage de production et la configuration du proxy restent à réaliser dans
-une phase ultérieure. La présente configuration fonctionne aussi sans Docker.
-
-## Procédure de déploiement existante
-
-L'application est déployée sur le serveur de production à l'aide de Docker.
-
-Le fichier `.env` de production est conservé sur le serveur et reste indépendant du dépôt Git. Les secrets de production ne sont donc pas stockés dans le code source.
-
-Le déploiement de l'application est automatisé par la pipeline CI/CD du projet. Lorsqu'une nouvelle version est déployée, le code de l'application est mis à jour et les services Docker sont relancés avec la nouvelle version.
-
-Le fichier `.env` présent sur le serveur est conservé lors des déploiements. Les variables d'environnement sont ainsi réutilisées par l'application sans avoir à les ajouter au dépôt.
-
-Lorsqu'une variable d'environnement est ajoutée ou modifiée en production, elle doit être mise à jour directement dans le `.env` du serveur.
-
-Par exemple, pour autoriser un nouveau frontend à utiliser l'API :
-
-```env
-CORS_ALLOWED_ORIGINS=https://site-a.fr,https://www.site-a.fr,https://nouveau-site.fr
-```
-
-Le prochain redémarrage ou redéploiement de l'application permettra à Django de charger la nouvelle configuration.
-
----
-
-# Réponses de l'API
-
-## Succès
-
-HTTP `201 Created`
-
-```json
-{
-  "success": true,
-  "message": "Votre message a bien été envoyé."
-}
-```
-
----
-
-## Erreur de validation
-
-HTTP `400 Bad Request`
-
-Les erreurs sont directement retournées par le serializer.
-
----
-
-# Bonnes pratiques mises en œuvre
-
-- Séparation de la logique métier (`services.py`)
-- Validation avec Django REST Framework
-- Utilisation des variables d'environnement
-- Configuration CORS limitée aux origines autorisées
-- Génération du HTML avec les templates Django
-- Version HTML + texte des emails
-- Utilisation de `reply_to`
-- Échappement automatique des données utilisateur
-- Gestion des erreurs et journalisation
-- Secrets de production non versionnés
-- Déploiement automatisé
-- API REST simple et facilement testable
-
----
-
-# Pistes d'amélioration
-
-- Ajout d'un accusé de réception envoyé au visiteur
-- Limitation du nombre de requêtes (rate limiting)
-- Protection anti-spam (reCAPTCHA ou Cloudflare Turnstile)
-- Enregistrement des messages en base de données
-- Tableau d'administration pour consulter les demandes
-- Tests unitaires et tests d'intégration
-- Envoi asynchrone des emails avec Celery ou Django Q
+Ouvrir `docs/_build/html/index.html`. Read the Docs est configuré dans
+`.readthedocs.yaml` ; **URL publique à renseigner après création du projet
+Read the Docs**. Voir le [guide de maintenance](docs/getting-started/development.md).
