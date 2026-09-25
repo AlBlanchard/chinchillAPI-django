@@ -7,3 +7,8 @@ __pycache__/
 *.pyo
 *.pyd
 db.sqlite3
+.pytest_cache/
+.coverage
+htmlcov/
+media/
+staticfiles/

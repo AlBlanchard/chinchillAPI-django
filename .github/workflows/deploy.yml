@@ -10,12 +10,81 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: chinchillapi_ci
+          POSTGRES_USER: chinchillapi_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U chinchillapi_ci -d chinchillapi_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SECRET_KEY: ci-only-not-a-production-secret-key-for-chinchillapi-tests
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
+      POSTGRES_DB: chinchillapi_ci
+      POSTGRES_USER: chinchillapi_ci
+      POSTGRES_PASSWORD: ci-only-password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+      EMAIL_HOST: localhost
+      EMAIL_HOST_USER: ""
+      EMAIL_HOST_PASSWORD: ""
+      DEFAULT_FROM_EMAIL: ci@example.invalid
+      CONTACT_EMAIL: ci@example.invalid
+      MEDIA_ROOT: /tmp/chinchillapi-media
+      STATIC_ROOT: /tmp/chinchillapi-staticfiles
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install application and test dependencies
+        run: |
+          python -m pip install -r requirements.txt
+          python -m pip install pytest==9.1.1 pytest-django==4.14.0 pytest-cov==7.1.0
+
+      - name: Run complete test suite
+        run: python -m pytest
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Test Tailscale connection
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+        run: |
+          tailscale status
+          tailscale ping "$SSH_HOST"
 
       - name: Configure SSH
         env:
@@ -24,10 +93,14 @@ jobs:
           SSH_HOST_KEY: ${{ secrets.SSH_HOST_KEY }}
         run: |
           install -m 700 -d ~/.ssh
+
           printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+
           printf '%s %s\n' "$SSH_HOST" "$SSH_HOST_KEY" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
+
+          ssh-keygen -F "$SSH_HOST" -f ~/.ssh/known_hosts
 
       - name: Upload application
         env:
@@ -39,27 +112,87 @@ jobs:
             --exclude '.env' \
             --exclude '.git' \
             --exclude '.venv' \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            --exclude 'media/' \
+            --exclude 'staticfiles/' \
+            --exclude '__pycache__/' \
+            --exclude '.pytest_cache/' \
+            --exclude '.coverage' \
+            --exclude 'htmlcov/' \
+            -e "ssh -i ~/.ssh/deploy_key -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15" \
             ./ \
             "$SSH_USER@$SSH_HOST:/srv/apps/chinchillapi/"
 
-      - name: Build and restart
+      - name: Build, migrate and verify deployment
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            "$SSH_USER@$SSH_HOST" \
-            "sudo /usr/bin/docker compose -f /srv/apps/chinchillapi/compose.yaml build &&
-             sudo /usr/bin/docker compose -f /srv/apps/chinchillapi/compose.yaml up -d"
+          ssh \
+            -i ~/.ssh/deploy_key \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$SSH_USER@$SSH_HOST" 'bash -se' <<'REMOTE'
+          set -Eeuo pipefail
+          cd /srv/apps/chinchillapi
 
-      - name: Verify deployment
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USER: ${{ secrets.SSH_USER }}
-        run: |
-          ssh -i ~/.ssh/deploy_key \
-            "$SSH_USER@$SSH_HOST" \
-            'STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8001/api/contact/)
-             echo "API returned HTTP $STATUS"
-             test "$STATUS" = "405"'
+          compose() {
+            sudo -n /usr/bin/docker compose -f /srv/apps/chinchillapi/compose.yaml "$@"
+          }
+
+          on_error() {
+            result=$?
+            trap - ERR
+            set +e
+            compose ps --all
+            compose logs --no-color --tail 100 db api
+            exit "$result"
+          }
+          trap on_error ERR
+
+          compose build
+          compose up -d db
+
+          db_ready=false
+          for attempt in {1..30}; do
+            db_health=$(compose ps --all --format '{{.Health}}' db)
+            echo "PostgreSQL health ($attempt/30): ${db_health:-missing}"
+            if [ "$db_health" = "healthy" ]; then
+              db_ready=true
+              break
+            fi
+            if [ "$attempt" -lt 30 ]; then
+              sleep 5
+            fi
+          done
+          if [ "$db_ready" != "true" ]; then
+            echo 'PostgreSQL did not become healthy; stopping deployment.' >&2
+            false
+          fi
+
+          compose run --rm --no-deps api python manage.py migrate --noinput
+
+          # Pas de collectstatic dans un conteneur jetable : STATIC_ROOT n'est pas partagé.
+          # À activer après validation d'un stockage persistant et de sa desserte.
+          echo '::warning::collectstatic skipped: /app/staticfiles has no shared volume; static file delivery is not configured.'
+
+          compose up -d api
+
+          for attempt in {1..30}; do
+            if status=$(curl --silent --show-error --output /dev/null \
+              --write-out '%{http_code}' --connect-timeout 2 --max-time 5 \
+              http://127.0.0.1:8001/api/contact/); then
+              echo "API HTTP status ($attempt/30): $status"
+              if [ "$status" = "405" ]; then
+                exit 0
+              fi
+            else
+              echo "API connection failed ($attempt/30)." >&2
+            fi
+            if [ "$attempt" -lt 30 ]; then
+              sleep 2
+            fi
+          done
+          echo 'API did not reach the expected HTTP status; deployment failed.' >&2
+          false
+          REMOTE
