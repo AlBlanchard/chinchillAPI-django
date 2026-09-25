@@ -10,6 +10,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.decorators import action
 
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
@@ -488,7 +489,10 @@ class ProjectImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-
+# Ce décorateur permet d'ajouter une action personnalisée "attach" au ViewSet.
+# Pour les images associées à une page spécifique, cette action permet de les attacher via une requête POST.
+# Comme ça une même image peut être attachée à plusieurs pages sans être recréée.
+@action(detail=False, methods=["post"], url_path="attach")
 class ProjectPageImageViewSet(StaffPublicationMixin, viewsets.ModelViewSet):
     """
     Images accessibles dans le contexte d'une page précise,
