@@ -70,3 +70,9 @@ python -m sphinx -W --keep-going -b html docs docs/_build/html
 Ouvrir ensuite `docs/_build/html/index.html`.
 
 Voir également le [guide de maintenance](docs/getting-started/development.md).
+
+## Interface Projects
+
+Interface interne staff : `/manage/projects/` (connexion Django Admin).
+Création JSON, upload facultatif et bibliothèque privée d’images.
+Voir [le guide](docs/apps/projects/interface.md), notamment pour compiler le SCSS.

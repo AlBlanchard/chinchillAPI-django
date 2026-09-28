@@ -252,7 +252,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     )
 
     def _validate_named_relations(self, model, names):
-        # La résolution/création reste dans le ViewSet ; ici on valide seulement.
+        # La résolution/création reste dans le service ; ici on valide seulement.
         pending_slugs = {}
         for name in names:
             if model.objects.filter(name=name).exists():

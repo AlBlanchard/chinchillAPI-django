@@ -1,0 +1,91 @@
+{% extends 'projects/manage_base.html' %}
+{% block content %}
+<nav class="section-nav" aria-label="Sections"><a href="#create">Créer</a><a href="#patch">Modifier</a><a href="#add-image">Ajouter une image</a><a href="#projects-browser">Projects / Pages</a><a href="#library">Images</a></nav>
+<div class="workspace"><div class="column">
+    <details class="panel editor" id="create" {% if active_form == "create" %}open{% endif %}>
+      <summary><h2 id="create-title">Créer un projet</h2></summary>
+      <form method="post" action="{% url 'projects-manage' %}" enctype="multipart/form-data">
+        {% csrf_token %}
+        <label for="payload">Payload Project JSON</label>
+        <p class="help" id="payload-help">Le même contrat que POST /api/projects/. Les pages, paragraphes et highlights peuvent être imbriqués.</p>
+        <textarea id="payload" name="payload" rows="22" required spellcheck="false" aria-describedby="payload-help">{{ payload }}</textarea>
+        <details><summary>Exemple minimal</summary><pre>{
+  "title": "Mon projet",
+  "slug": "mon-projet",
+  "project_type": "personnel",
+  "description": "Description du projet",
+  "started_at": "2026-09-28",
+  "published": false,
+  "pages": []
+}</pre></details>
+        <fieldset><legend>Image du projet <span>· facultative</span></legend>
+          <label for="file">Fichier image</label><input type="file" id="file" name="file" accept="image/*" aria-describedby="file-help">
+          <p class="help" id="file-help">10 Mio maximum. L'image sera associée au projet, pas à une page.</p>
+          <label for="alt">Texte alternatif</label><input id="alt" name="alt" value="{{ alt }}" maxlength="255"><p class="help">Obligatoire si vous ajoutez une image.</p>
+          <label for="theme">Thème</label><input id="theme" name="theme" value="{{ theme }}" maxlength="50" placeholder="Ex. light, dark"><p class="help">Laisser vide pour l'image générique.</p>
+        </fieldset>
+        <button type="submit" class="primary">Créer le projet</button>
+      </form>
+    </details>
+<details class="panel editor" id="patch" {% if active_form == "patch" %}open{% endif %}>
+  <summary><h2>Modifier une ressource</h2></summary>
+  <p class="help">Modifiez seulement les champs fournis. Les pages et les blocs imbriqués ne sont pas modifiables par ce formulaire.</p>
+  <form method="post" action="{% url 'projects-manage-patch' %}">
+    {% csrf_token %}
+    {{ patch_form.resource_type.label_tag }}{{ patch_form.resource_type }}
+    {{ patch_form.project_slug.label_tag }}{{ patch_form.project_slug }}
+    {{ patch_form.page_slug.label_tag }}{{ patch_form.page_slug }}
+    <p class="help">Pour le type Page, indiquez une page appartenant au projet choisi.</p>
+    {{ patch_form.payload.label_tag }}{{ patch_form.payload }}
+    <button class="primary" type="submit">Appliquer le PATCH</button>
+  </form>
+</details>
+<details class="panel editor" id="add-image" {% if active_form == "image" %}open{% endif %}>
+  <summary><h2>Ajouter une image à un projet existant</h2></summary>
+  <p class="help">Une page renseignée devient la destination. Choisissez un UUID existant ou un nouveau fichier.</p>
+  <form method="post" action="{% url 'projects-manage-add-image' %}" enctype="multipart/form-data">
+    {% csrf_token %}
+    {{ image_form.project_slug.label_tag }}{{ image_form.project_slug }}
+    {{ image_form.page_slug.label_tag }}{{ image_form.page_slug }}
+    <fieldset><legend>Source A · Image existante</legend>
+      {{ image_form.image_id.label_tag }}{{ image_form.image_id }}
+      <a href="#library">Consulter la bibliothèque ↓</a>
+    </fieldset>
+    <fieldset><legend>OU source B · Upload</legend>
+      {{ image_form.file.label_tag }}{{ image_form.file }}
+      <p class="help">10 Mio maximum. Texte alternatif obligatoire pour un upload.</p>
+      {{ image_form.alt.label_tag }}{{ image_form.alt }}
+      {{ image_form.theme.label_tag }}{{ image_form.theme }}
+      <p class="help">Un thème vide désigne l'image générique. Un seul fichier par thème et par destination.</p>
+    </fieldset>
+    <button class="primary" type="submit">Ajouter l'image</button>
+  </form>
+</details>
+</div><div class="column"><section class="panel" id="projects-browser" aria-labelledby="browser-title">
+  <h2 id="browser-title">Projects / Pages</h2>
+  <p class="help">Copiez les slugs pour cibler les formulaires. Les pages sont classées par position.</p>
+  <datalist id="project-slugs">{% for project in projects %}<option value="{{ project.slug }}">{{ project.title }}</option>{% endfor %}</datalist>
+  {% for project in projects %}<article class="project-item">
+    <div class="project-heading"><h3>{{ project.title }}</h3><a class="danger" href="{% url 'projects-manage-delete-project' project.pk %}" aria-label="Supprimer le projet {{ project.title }}" title="Supprimer le projet">×</a></div>
+    <div class="copy-row"><label class="sr-only" for="project-slug-{{ project.pk }}">Slug du projet {{ project.title }}</label><input id="project-slug-{{ project.pk }}" value="{{ project.slug }}" readonly><button type="button" data-copy="{{ project.slug }}" data-copy-target="project-slug-{{ project.pk }}">Copier le slug</button></div>
+    <details><summary>{{ project.pages.all|length }} page{{ project.pages.all|length|pluralize }}</summary>
+      <ul class="page-list">{% for page in project.pages.all %}<li><span>{{ page.title }}</span><div class="copy-row"><label class="sr-only" for="page-slug-{{ page.pk }}">Slug de la page {{ page.title }}</label><input id="page-slug-{{ page.pk }}" value="{{ page.slug }}" readonly><button type="button" data-copy="{{ page.slug }}" data-copy-target="page-slug-{{ page.pk }}">Copier le slug</button></div></li>{% empty %}<li>Aucune page.</li>{% endfor %}</ul>
+    </details>
+  </article>{% empty %}<p>Aucun projet pour le moment.</p>{% endfor %}
+</section>
+    <section class="panel library" id="library" aria-labelledby="library-title">
+      <h2 id="library-title">Bibliothèque d'images <span>({{ images.paginator.count }})</span></h2>
+      <p class="help">Copiez un UUID pour le formulaire d'ajout d'image. Seules les images sans association peuvent être supprimées.</p>
+      <div class="image-grid">
+      {% for image in images %}<article class="image-card">
+        <a class="delete-icon" href="{% url 'projects-manage-delete-image' image.pk %}" aria-label="Supprimer l'image {{ image.alt }}" title="Supprimer l'image">×</a>
+        <img src="{% url 'projects-manage-image' image.pk %}" alt="{{ image.alt }}" loading="lazy" width="320" height="180">
+        <div class="image-info"><h3>{{ image.alt }}</h3><p>Thème : <strong>{{ image.theme|default:"générique" }}</strong></p>
+        <label class="help" for="uuid-{{ image.pk }}">UUID</label><input class="uuid" id="uuid-{{ image.pk }}" value="{{ image.pk }}" readonly>
+        <button type="button" data-copy="{{ image.pk }}" data-copy-target="uuid-{{ image.pk }}">Copier l'UUID</button></div>
+      </article>{% empty %}<p class="empty">Aucune image pour le moment. Ajoutez-en une avec votre premier projet.</p>{% endfor %}
+      </div>
+      {% if images.has_other_pages %}<nav class="pagination" aria-label="Pages de la bibliothèque">{% if images.has_previous %}<a href="{% url 'projects-manage' %}?page={{ images.previous_page_number }}#library-title">← Précédente</a>{% endif %}<span>{{ images.number }} / {{ images.paginator.num_pages }}</span>{% if images.has_next %}<a href="{% url 'projects-manage' %}?page={{ images.next_page_number }}#library-title">Suivante →</a>{% endif %}</nav>{% endif %}
+    </section>
+</div></div>
+{% endblock %}

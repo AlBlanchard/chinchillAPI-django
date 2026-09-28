@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Projects · ChinchillAPI</title>
+  <link rel="stylesheet" href="{% static 'projects/manage.css' %}">
+  <script src="{% static 'projects/manage.js' %}" defer></script>
+</head>
+<body>
+<header class="topbar"><a href="{% url 'projects-manage' %}">ChinchillAPI <span>/ Interne</span></a><a href="{% url 'admin:index' %}">Django Admin ↗</a></header>
+<main>
+  <div class="intro"><p class="eyebrow">ESPACE STAFF</p><h1>Projects</h1><p>Créer, modifier et organiser vos projets.</p></div>
+  {% for message in messages %}<div class="notice {{ message.tags }}" role="status">{{ message }}</div>{% endfor %}
+  {% if errors %}<section class="notice error" role="alert" aria-labelledby="errors-title"><h2 id="errors-title">Opération impossible</h2><ul>{% for error in errors %}<li><strong>{{ error.field }}</strong> : {{ error.message }}</li>{% endfor %}</ul><p>Les champs saisis sont conservés. Si nécessaire, sélectionnez de nouveau le fichier image.</p></section>{% endif %}
+  {% block content %}{% endblock %}
+  <p id="copy-status" class="copy-status" role="status" aria-live="polite"></p>
+</main>
+</body>
+</html>

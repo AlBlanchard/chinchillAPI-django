@@ -25,6 +25,7 @@ flowchart TB
 | Couche | Rôle et fichiers |
 | --- | --- |
 | Routage | `config/urls.py`, `contact/urls.py`, `projects/urls.py` sélectionnent le contrôleur |
+| Services Projects | `services.py` : création imbriquée et upload Project partagés avec l’interface staff |
 | Contrôleurs HTTP | APIView / ViewSets dans `views.py` : permissions, sélection des ressources, orchestration, réponses |
 | Serializers | Validation et représentation ; certaines validations consultent l'ORM |
 | Service Contact | `contact/services.py` construit et envoie l'email |

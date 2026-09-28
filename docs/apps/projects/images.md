@@ -1,7 +1,8 @@
 # Images : téléversement, partage et cycle de vie
 
 Sources : `ImageSerializer`, `ImageViewSet`, `ProjectImageViewSet`,
-`ProjectPageImageViewSet` et `remove_image_from_owner` dans `projects/views.py`.
+`ProjectPageImageViewSet` dans `projects/views.py`, services d’upload,
+d’association et `remove_image_from_owner` dans `projects/services.py`.
 
 ## Créer une image
 
