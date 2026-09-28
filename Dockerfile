@@ -19,6 +19,21 @@ COPY --chown=root:app . .
 # Ces droits concernent l'image seule ; un bind mount conserve les droits de l'hôte.
 RUN install -d -o app -g app -m 0750 /app/media /app/staticfiles
 
+# Les fichiers statiques font partie de l'image déployée.
+# Ces variables factices permettent uniquement à Django de charger les settings
+# pendant le build ; aucune connexion PostgreSQL/SMTP n'est effectuée.
+RUN DJANGO_SECRET_KEY=collectstatic-only \
+    POSTGRES_DB=unused \
+    POSTGRES_USER=unused \
+    POSTGRES_PASSWORD=unused \
+    POSTGRES_HOST=unused \
+    EMAIL_HOST=unused \
+    EMAIL_HOST_USER=unused \
+    EMAIL_HOST_PASSWORD=unused \
+    DEFAULT_FROM_EMAIL=unused@example.invalid \
+    CONTACT_EMAIL=unused@example.invalid \
+    python manage.py collectstatic --noinput
+
 EXPOSE 8000
 
 USER app
