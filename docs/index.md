@@ -41,6 +41,7 @@ apps/projects/data-model
 apps/projects/nested-writes
 apps/projects/publication
 apps/projects/images
+apps/projects/interface
 ```
 
 ```{toctree}

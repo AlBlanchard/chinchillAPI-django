@@ -1,0 +1,442 @@
+/* Généré depuis manage.scss : python scripts/build_styles.py */
+:root {
+  color-scheme: light;
+  --ink: #23352e;
+  --muted: #586960;
+  --line: #d8e1da;
+  --accent: #236947;
+  --paper: #fff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f3f5f0;
+  color: var(--ink);
+  font: 16px/1.55 system-ui, sans-serif;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 4px;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 5%;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar a {
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.topbar span, .help, legend span, h2 span {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+main {
+  max-width: 1500px;
+  margin: auto;
+  padding: 28px 16px 64px;
+}
+
+.intro {
+  margin-bottom: 28px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .15em;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 3rem);
+  line-height: 1.1;
+  margin: 8px 0;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin-top: 0;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+p {
+  margin: 8px 0 16px;
+}
+
+.workspace {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+.panel {
+  min-width: 0;
+  padding: 20px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+label {
+  display: block;
+  font-weight: 650;
+  margin-bottom: 6px;
+}
+
+.help {
+  font-size: .875rem;
+}
+
+input, textarea, select, button {
+  font: inherit;
+}
+
+input, textarea, select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #8b9c90;
+  border-radius: 6px;
+  padding: 11px;
+  background: #fff;
+  color: var(--ink);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 360px;
+  font: .875rem/1.6 ui-monospace, monospace;
+  tab-size: 2;
+}
+
+:focus-visible {
+  outline: 3px solid #397957;
+  outline-offset: 3px;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 24px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+legend {
+  font-weight: 650;
+  padding: 0 6px;
+}
+
+button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  border: 1px solid #91a698;
+  color: var(--accent);
+  background: #f4f8f4;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+button:hover {
+  background: #e3eee4;
+}
+
+.primary {
+  width: 100%;
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+.primary:hover {
+  background: #194d34;
+}
+
+details {
+  margin-top: 12px;
+}
+
+summary {
+  cursor: pointer;
+  color: var(--accent);
+  padding: 8px 0;
+}
+
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .8rem;
+  background: #f3f5f0;
+  padding: 14px;
+  border-radius: 6px;
+}
+
+.notice {
+  padding: 18px;
+  margin-bottom: 24px;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.success {
+  background: #e5f2e7;
+  border: 1px solid #8bab91;
+}
+
+.error {
+  background: #fff0ed;
+  border: 1px solid #b97568;
+  color: #792c20;
+}
+
+.image-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.image-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.image-card img {
+  display: block;
+  width: 100%;
+  height: 160px;
+  object-fit: contain;
+  background: #edf0eb;
+}
+
+.image-info {
+  padding: 14px;
+}
+
+.image-info p {
+  font-size: .875rem;
+}
+
+.uuid {
+  font-family: ui-monospace, monospace;
+  font-size: .75rem;
+  padding: 9px 6px;
+  margin-bottom: 12px;
+}
+
+.image-info button {
+  width: 100%;
+}
+
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pagination a {
+  padding: 10px 0;
+}
+
+@media (min-width: 600px) {
+  main {
+    padding: 36px 28px 64px;
+  }
+  .image-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .panel {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1100px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  }
+  textarea {
+    min-height: 480px;
+  }
+}
+
+.column {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.section-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  margin-bottom: 24px;
+}
+
+.section-nav a {
+  padding: 8px 0;
+}
+
+.editor {
+  margin: 0;
+  scroll-margin-top: 16px;
+}
+
+.editor > summary {
+  font-weight: 650;
+}
+
+.editor > summary h2 {
+  display: inline;
+}
+
+.editor form {
+  margin-top: 20px;
+}
+
+.editor form > input, .editor form > select, .editor fieldset input {
+  margin-bottom: 14px;
+}
+
+.editor button.primary {
+  margin-top: 16px;
+}
+
+#patch textarea {
+  min-height: 240px;
+}
+
+.image-card {
+  position: relative;
+}
+
+.delete-icon {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border-radius: 6px;
+  background: white;
+  color: #8d2d26;
+  width: 44px;
+  height: 44px;
+  text-align: center;
+  line-height: 44px;
+  text-decoration: none;
+  font-size: 1.5rem;
+  border: 1px solid #d6aaa5;
+}
+
+.danger {
+  color: #8d2d26;
+  border-color: #c18780;
+}
+
+a.danger {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+  align-items: center;
+  font-size: 1.5rem;
+  text-decoration: none;
+}
+
+.project-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.project-item + .project-item {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.copy-row input {
+  flex: 1 1 160px;
+  font: .85rem ui-monospace, monospace;
+}
+
+.copy-row button {
+  flex: 0 0 auto;
+}
+
+.page-list {
+  padding-left: 18px;
+}
+
+.page-list li {
+  margin: 12px 0;
+}
+
+.page-list span {
+  overflow-wrap: anywhere;
+}
+
+.confirmation {
+  max-width: 760px;
+  margin: auto;
+  overflow-wrap: anywhere;
+}
+
+.confirmation-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.copy-status:not(:empty) {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  right: 16px;
+  margin: 0;
+  padding: 12px 18px;
+  background: #23352e;
+  color: white;
+  border-radius: 8px;
+  z-index: 5;
+  overflow-wrap: anywhere;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

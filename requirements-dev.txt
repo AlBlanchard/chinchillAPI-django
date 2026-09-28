@@ -1,0 +1,2 @@
+# Compilation SCSS uniquement ; aucun ajout au runtime Django.
+libsass==0.23.0

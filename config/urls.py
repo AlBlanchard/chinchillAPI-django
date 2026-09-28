@@ -14,6 +14,7 @@ from drf_spectacular.views import (
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("manage/projects/", include("projects.manage_urls")),
     path("api/contact/", include("contact.urls")),
     path("api/", include("projects.urls")),
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
