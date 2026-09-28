@@ -1,6 +1,6 @@
 # Création et modification des relations
 
-Sources : `ProjectSerializer`, `ProjectPageSerializer` et `ProjectViewSet`.
+Sources : `ProjectSerializer`, `ProjectPageSerializer` et `projects.services.create_project` (appelé par `ProjectViewSet` et l’interface interne).
 
 ## POST Project : création imbriquée acceptée
 
@@ -34,9 +34,9 @@ publication omis restent False, indépendamment pour le projet et ses pages.
 Les images imbriquées sont en lecture seule : les envoyer dans ce JSON ne crée
 ni fichier ni association. Utiliser les endpoints [images](images.md).
 
-Le contrôleur crée d'abord Project, résout les noms avec `get_or_create`,
+Le service partagé crée d'abord Project, résout les noms avec `get_or_create`,
 assigne les ManyToMany, puis crée les pages et leurs blocs (`bulk_create`
-pour Paragraph et Highlight). `perform_create` est atomique en base : un
+pour Paragraph et Highlight). `create_project` est atomique en base : un
 échec pendant cette orchestration annule l'ensemble des écritures de base.
 
 ## Résolution des noms et validation

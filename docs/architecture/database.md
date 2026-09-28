@@ -28,7 +28,7 @@ pas être présentés comme des contraintes SQL universelles.
 
 ## Transactions et fichiers
 
-`ProjectViewSet.perform_create` et `perform_update` sont décorés par
+`projects.services.create_project` et `projects.services.update_project` sont décorés par
 `transaction.atomic`. L'opération sur Project et ses relations est validée
 ensemble ou annulée en cas d'erreur de base. Les validations du serializer
 précèdent cette orchestration ; elles ne constituent pas un verrou concurrent.
@@ -38,6 +38,9 @@ relatif (par exemple `projects/photo.png`) et les métadonnées. Une transaction
 PostgreSQL ne peut pas annuler automatiquement une écriture ou une suppression
 physique de fichier. Le code n'installe pas de transaction distribuée entre ces
 deux stockages ni de service général de collecte des orphelins.
+L’upload Project partagé avec l’[interface staff](../apps/projects/interface.md)
+compense toutefois les échecs d’écriture et d’association en supprimant le
+fichier nouvellement créé.
 
 Pour les cardinalités et champs fonctionnels, consulter le
 [modèle Projects](../apps/projects/data-model.md). Pour sauvegarder l'ensemble,

@@ -1,0 +1,18 @@
+{% extends 'projects/manage_base.html' %}
+{% block content %}
+<section class="panel confirmation" aria-labelledby="confirmation-title">
+  <h2 id="confirmation-title">Supprimer définitivement « {{ label }} » ?</h2>
+  {% if kind == 'image' %}
+    <p>UUID : <code>{{ identity }}</code></p>
+    {% if associations %}<div class="notice error"><p>Cette image est encore utilisée. Retirez d'abord les associations via les endpoints d'images contextuelles de l'API.</p><ul>{% for association in associations %}<li>{{ association }}</li>{% endfor %}</ul></div>
+    {% else %}<p>L'image et son fichier seront supprimés. Cette action est définitive.</p>{% endif %}
+  {% else %}
+    <p>Ses pages, paragraphes et highlights seront supprimés. Les images et leurs fichiers seront conservés dans la bibliothèque, y compris ceux qui deviendront inutilisés.</p>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="confirmation-actions"><a href="{% url 'projects-manage' %}">Annuler et revenir</a>
+    {% if not associations %}<button class="danger" name="confirm" value="{{ identity }}" type="submit">Confirmer la suppression définitive</button>{% endif %}</div>
+  </form>
+</section>
+{% endblock %}

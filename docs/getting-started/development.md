@@ -23,13 +23,14 @@ La CI exécute cette même commande avec PostgreSQL 17.
 | `test_permissions.py` | Lecture publique et écritures staff |
 | `test_publication.py` | Brouillons, isolation par propriétaire, représentations imbriquées, nombre de requêtes ORM |
 | `test_jwt_auth.py` | Obtention, refresh, écriture avec JWT, refus non-staff |
+| `test_manage_v2.py` | PATCH, associations, uploads Project/Page, confirmations, suppressions, CSRF, slugs et compatibilité attach API |
+| `test_manage.py` | Interface staff, CSRF, JSON, uploads, miniatures privées, pagination et compensation des fichiers |
 | `test_media.py` | URL contrôlée, visibilité, fichiers absents, HEAD, cache, négociation de contenu |
 
 Les tests qui écrivent des médias utilisent des répertoires temporaires.
-`contact/tests.py` est un squelette sans test effectif. L'action `images/attach/`
-n'a pas non plus de test dédié dans la suite actuelle ; les tests d'images
-partagées vérifient d'autres parcours. La couverture Projects ne prouve donc
-pas la validation du SMTP ni de chaque action HTTP.
+`contact/tests.py` est un squelette sans test effectif. L'action `images/attach/` est couverte par les tests V2 (champs requis,
+idempotence et conflits de thème). La couverture Projects ne prouve pas
+la validation du SMTP ni de chaque action HTTP.
 
 ## Construire la documentation
 
