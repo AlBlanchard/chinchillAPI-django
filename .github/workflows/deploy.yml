@@ -1,7 +1,11 @@
 name: Deploy API
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - main
 
@@ -10,62 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_DB: chinchillapi_ci
-          POSTGRES_USER: chinchillapi_ci
-          POSTGRES_PASSWORD: ci-only-password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U chinchillapi_ci -d chinchillapi_ci"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DJANGO_SECRET_KEY: ci-only-not-a-production-secret-key-for-chinchillapi-tests
-      DEBUG: "False"
-      ALLOWED_HOSTS: localhost,127.0.0.1,testserver
-      POSTGRES_DB: chinchillapi_ci
-      POSTGRES_USER: chinchillapi_ci
-      POSTGRES_PASSWORD: ci-only-password
-      POSTGRES_HOST: 127.0.0.1
-      POSTGRES_PORT: "5432"
-      EMAIL_HOST: localhost
-      EMAIL_HOST_USER: ""
-      EMAIL_HOST_PASSWORD: ""
-      DEFAULT_FROM_EMAIL: ci@example.invalid
-      CONTACT_EMAIL: ci@example.invalid
-      MEDIA_ROOT: /tmp/chinchillapi-media
-      STATIC_ROOT: /tmp/chinchillapi-staticfiles
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: pip
-
-      - name: Install application and test dependencies
-        run: |
-          python -m pip install -r requirements.txt
-          python -m pip install pytest==9.1.1 pytest-django==4.14.0 pytest-cov==7.1.0
-
-      - name: Run complete test suite
-        run: python -m pytest
-
   deploy:
-    needs: test
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
